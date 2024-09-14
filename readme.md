@@ -35,8 +35,19 @@ The **File Generation for Raspberry Pi** project provides utilities for automati
      ```bash
      pip install -r requirements.txt
      ```
-
-3. **Run the Scripts**:
+3. **Create env file**:
+    - Create a .env file.
+    - Add info about wifi there.
+   ```bash
+    touch .env
+   ```
+   - Add following in the file
+   - Don't Give space in between
+   ```chatinput
+    SSID=name_of_wifi
+    WIFI_PASSWORD=password
+   ```
+4. **Run the Scripts**:
    - Execute the main script to generate the necessary files:
      ```bash
      python main.py

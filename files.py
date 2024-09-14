@@ -12,6 +12,8 @@ from pathlib import Path
 import sys
 import logging
 from mpu import MPU
+import platform
+from dotenv import load_dotenv
 
 new_recursion_limit = 4000
 sys.setrecursionlimit(new_recursion_limit)
@@ -23,11 +25,18 @@ class Files:
         # Set up logging
         self.log_folder = "Logged"
         self.configure()
-        self.ABS_PATH = "/home/nvs/Desktop/my_env"
-        self.NEW_DIRECTORY = f"{self.ABS_PATH}/readings"
+        self.ABS_PATH = "/home/nvs/Desktop/my_env" # Add your path
+        self.readings_directory = f"{self.ABS_PATH}/readings"
         self.DESIRED_DURATION = 60
         self.START_TIME = time.time()
         self.ENDPOINT = "http://103.97.164.81:2121/"
+        self.backup_directory = f"{self.ABS_PATH}/Backup"
+        self.files_repository_directory = f"{self.ABS_PATH}/Files Repository"
+        self.upload_queue_directory = f"{self.ABS_PATH}/Upload Queue"
+        load_dotenv()
+        self.ssid = os.getenv("SSID")
+        self.wifi_password = os.getenv("WIFI_PASSWORD")
+        self.logger = logging
 
     def configure(self):
         if not os.path.exists(self.log_folder):
@@ -57,9 +66,9 @@ class Files:
             inner_start_time = time.time()
             d_duration = 2
             m_duration = 0
-
             file_path = f"{formatted_time}.csv"
-            csv_file_path = os.path.join(self.NEW_DIRECTORY, file_path)
+            self.check_directory("readings")
+            csv_file_path = os.path.join(self.readings_directory, file_path)
 
             # Create or get the logger for the current session
             session_logger = logging.getLogger("session_logger")
@@ -119,12 +128,12 @@ class Files:
                         print("Csv created")
                         return True
         except Exception as e:
-            session_logger.exception("An exception occurred in files_generation: %s", e)
+            logging.exception("An exception occurred in files_generation: %s", e)
 
     def get_files_status_to_delete(self, file_name):
-        time_from_file = datetime.strptime(file_name.split(".")[0].replace("T", " "), "%Y-%m-%d %H-%M-%S")
+        time_from_file = datetime.strptime(file_name.split(".")[0].replace("T", " "), "%Y-%b-%d %H-%M-%S")
         time_difference = datetime.now() - time_from_file
-        if time_difference >= timedelta(minutes=1):
+        if time_difference >= timedelta(hours=4):
             return True
         else:
             return False
@@ -136,54 +145,39 @@ class Files:
         for file_name in files:
             if self.get_files_status_to_delete(file_name.split("/")[-1]):
                 os.remove(file_name)
-                print(f"File deleted with {file_name.split('/')[-1]}")
+                logging.info(f"File deleted with {file_name.split('/')[-1]}")
                 cnt += 1
-        print(f"total files deleted are {cnt}")
+        logging.info(f"total files deleted are {cnt}")
 
     def backup_check(self):
         try:
             logging.info("Backup Check")
-            name = "Readings_Backup"
-            path = f"{self.ABS_PATH}/{name}"
-
-            try:
-                os.mkdir(path)
-                logging.info("Successfully created directory: %s", name)
-            except FileExistsError:
-                logging.info("Directory already exists: %s", name)
-
-            source_directory = f"{self.ABS_PATH}/readings"
-            destination_directory = f"{self.ABS_PATH}/Readings_Backup/"
-
+            self.check_directory("Backup")
+            source_directory = self.readings_directory
+            destination_directory = self.backup_directory
             files_to_move = os.listdir(source_directory)
+            print(files_to_move)
             if files_to_move:
                 for file_name in files_to_move:
                     source_path = os.path.join(source_directory, file_name)
                     destination_path = os.path.join(destination_directory, file_name)
                     shutil.move(source_path, destination_path)
-
                 logging.info("All the files are moved to the backup folder")
-                print("All the files are moved to the backup folder")
-
-                all_files = glob.glob(f"{self.ABS_PATH}/Readings_Backup/*.csv")
+                all_files = glob.glob(f"{self.backup_directory}/*.csv")
                 logging.info("Length of all Files: %s", str(len(all_files)))
-
-                file = self.max_accleration(all_files)
-
+                file = self.max_acceleration(all_files)
                 return file
             else:
                 return None
         except Exception as e:
             logging.exception("An exception occurred in BackUp Check: %s", e)
 
-    def max_accleration(self, all_files):
+    def max_acceleration(self, all_files):
         try:
             logging.info("Maximum Acceleration")
             read = 0
             failed_to_read = 0
-
             max_list = []
-
             for file_ in all_files:
                 try:
                     df = pd.read_csv(file_, index_col=None, header=0)
@@ -191,47 +185,32 @@ class Files:
                     read += 1
                 except Exception as e:
                     logging.warning("Failed to read file: %s", file_)
-                    print("Failed to read file: %s", file_)
+                    logging.exception(e)
                     failed_to_read += 1
-
             logging.info("Total No. of Files that are read: %s", str(read))
             logging.info("Total No. of Files that can't be read: %s", str(failed_to_read))
-            print("Total No. of Files that are read: %s", str(read))
-            print("Total No. of Files that can't be read: %s", str(failed_to_read))
-
             file_name = []
             high_acc = []
-
             for file_ in all_files:
                 try:
                     df = pd.read_csv(file_, index_col=None, header=0)
                     file_name.append(file_.title())
                     high_acc.append(df["acceleration"].max())
-                except Exception:
+                except Exception as e:
                     logging.warning("Exception while processing file: %s", file_)
+                    logging.exception(e)
 
             logging.info(
-                "Total No. of Files that are perfectly read and saved the title: %s",
+                "Total Files that are perfectly read and saved the title: %s",
                 str(len(file_name)),
             )
             logging.info(
-                "Total No. of Files that are perfectly read and get the Highest Acceleration and saved: %s",
+                "Total Files that are perfectly read and get the Highest Acceleration and saved: %s",
                 str(len(high_acc)),
             )
-
-            print(
-                "Total No. of Files that are perfectly read and saved the title: %s",
-                str(len(file_name)),
-            )
-            print(
-                "Total No. of Files that are perfectly read and get the Highest Acceleration and saved: %s",
-                (len(high_acc)),
-            )
-            file = self.convert_to_dictionary(file_name, high_acc)
-            return file
+            return self.convert_to_dictionary(file_name, high_acc)
         except Exception as e:
             logging.exception("An exception occurred in max acceleration: %s", e)
-            print("An exception occurred in max acceleration: %s", e)
 
     def convert_to_dictionary(self, file_name, high_acc):
         try:
@@ -242,14 +221,9 @@ class Files:
                     res[key] = value
                     high_acc.remove(value)
                     break
-
             for key, value in res.items():
                 logging.info("File Name: %s, Highest Acceleration: %s", key, str(value))
-                print("File Name: %s, Highest Acceleration: %s", key, str(value))
-
             logging.info("Total dictionary size: %s", str(len(res.items())))
-            print("Total dictionary size: %s", str(len(res.items())))
-
             max_key_title = max(res, key=res.get)
             logging.info(
                 "File Name: %s, Highest Acceleration: %s",
@@ -258,163 +232,178 @@ class Files:
             )
 
             logging.info("File having the maximum Acceleration: %s", max_key_title)
-            print("File having the maximum Acceleration: %s", max_key_title)
             logging.info(
                 "File having the maximum Acceleration is: %s", str(res[max_key_title])
             )
-            print("File having the maximum Acceleration is: %s", str(res[max_key_title]))
-
             return max_key_title.title()
         except Exception as e:
             logging.exception("An exception occurred in converting to dictionary: %s", e)
 
-    def move_to_test_directory(self, ms_test):
+    def move_to_upload_queue(self, ms_test):
         try:
-            logging.info("Move To Test Directory Function")
-            path = f"{self.ABS_PATH}/TestDirectory"
-            all_files = os.listdir(f"{self.ABS_PATH}/Readings_Backup")
-            try:
-                os.mkdir(path)
-                logging.info("Successfully created directory: %s", path)
-                print("Successfully created directory: %s", path)
-            except FileExistsError:
-                logging.info("Directory already exists: %s", path)
-                print("Directory already exists: %s", path)
-            del_start = False
-            all_files_path = f"{self.ABS_PATH}/all files"
-            if not os.path.exists(all_files_path):
-                os.mkdir(all_files_path)
-            for file_name in all_files:
-                if file_name.title() == ms_test:
-                    shutil.copy(file_name, path)
-                    logging.info("Maximum Value File copied to the new directory")
-                    print("Maximum Value File copied to the new directory")
-                    del_start = True
-                print("Moving to All directory")
-                shutil.move(file_name, all_files_path)
+            logging.info("Move To upload queue Function")
+            self.check_directory("Upload Queue")
+            is_file_copied = False
+            self.check_directory("Files Repository")
+            for file_name in os.listdir(self.backup_directory):
+                if file_name.title() == ms_test.split("/")[-1]:
+                    try:
+                        shutil.copy(f"{self.backup_directory}/{file_name}", self.upload_queue_directory)
+                        logging.info("Maximum Value File copied to the new directory")
+                        is_file_copied = True
+                    except Exception as e:
+                        logging.error(e)
+                shutil.move(f"{self.backup_directory}/{file_name}", self.files_repository_directory)
             self.delete_old_data()
-
-            if del_start:
-                t1 = 0
-                for _ in all_files:
-                    os.remove(_)
-                    t1 = t1 + 1
-                logging.info("Total No. of Files that are deleted: %s", str(t1))
-                print("Total No. of Files that are deleted: %s", str(t1))
+            if is_file_copied:
+                logging.info("File with max acceleration copied to the upload queue")
             else:
-                logging.info("File not copied to the new directory")
-                print("File not copied to the new directory")
-            return path
+                logging.error("File with max acceleration not copied to the upload queue")
+            return glob.glob(f"{self.upload_queue_directory}/*.csv")
         except Exception as e:
             logging.exception("An exception occurred in moving to test directory: %s", e)
 
-    def send_csv(self, path):
-        try:
-            logging.info("Files are being sent to server ....")
-            print("Files are being sent to server ....")
-
-            del_new_directory = False
-
-            new_files = glob.glob(f"{path}/*.csv")
-            logging.info("Length of all Files: %s", str(len(new_files)))
-            print("Length of all Files: %s", str(len(new_files)))
-
-            if not new_files:
-                logging.warning("No CSV files found in the directory.")
-                print("No CSV files found in the directory.")
+    def send_csv(self, files):
+        if not self.is_device_connected_to_internet():
+            self.connect_to_wifi(self.ssid, self.wifi_password)
+            if not self.is_device_connected_to_internet():
                 return
 
-            file_path = new_files[0]
-            logging.info("File Path: %s", file_path)
+        try:
+            logging.info("Files are being sent to server ....")
+            successfully_sent_files = []
+            logging.info("Length of all Files: %s", str(len(files)))
+            if not files:
+                logging.warning("No CSV files found in the directory.")
+                return
+            for file in files:
+                logging.info("File Path: %s", file)
+                file_sent_successfully = False
+                for attempt in range(3):  # Retry up to 3 times
+                    try:
+                        response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
+                                                 timeout=15)
+                        if response.status_code == 200:
+                            logging.info("File sent successfully.")
+                            file_sent_successfully = True
+                            successfully_sent_files.append(file)  # Track successful files
+                            break  # Exit retry loop if successful
+                        else:
+                            logging.error("Failed to send file. Status Code: %s", response.status_code)
+                    except requests.RequestException as e:
+                        logging.error("Error while sending file to server: %s", e)
 
-            for attempt in range(3):  # Retry up to 3 times
-                try:
-                    with open(file_path, "rb") as file:
-                        files = {"file": (file_path, file)}
-                        response = requests.post(f"{self.ENDPOINT}csv/upload", files=files)
+                    time.sleep(2 ** attempt)  # Exponential backoff after each failed attempt
 
-                    if response.status_code == 200:
-                        logging.info("File sent successfully.")
-                        print("File sent successfully.")
-                        del_new_directory = True
-                        break  # Exit retry loop if successful
-                    else:
-                        logging.error("Failed to send file. Status Code: %s", response.status_code)
-                        print("Failed to send file. Status Code: %s", response.status_code)
-                except requests.RequestException as e:
-                    logging.error("Error while sending file to server: %s", e)
-                    print("Error while sending file to server: %s", e)
+                if not file_sent_successfully:
+                    logging.warning("Failed to send file after 3 attempts: %s", file)
 
-                time.sleep(2 ** attempt)  # Exponential backoff
-
-            if del_new_directory:
+            # Now delete only the successfully sent files
+            if successfully_sent_files:
                 try:
                     count = 0
-                    for file in new_files:
+                    for file in successfully_sent_files:
                         os.remove(file)
                         count += 1
-                    logging.info("Total No. of Files that are deleted: %s", str(count))
-                    print("Total No. of Files that are deleted: %s", str(count))
+                    logging.info("Total Files that are deleted: %s", str(count))
                 except Exception as e:
                     logging.error("Error while deleting files: %s", e)
-                    print("Error while deleting files: %s", e)
+            else:
+                logging.warning("No files were successfully sent, so none were deleted.")
 
         except Exception as e:
             logging.exception("An exception occurred in send_csv: %s", e)
-            print("An exception occurred in send_csv: %s", e)
 
     def send_log(self):
+        # TODO 1: Check for internet connection and connect to Wi-Fi if not connected
+        if not self.is_device_connected_to_internet():
+            self.connect_to_wifi(self.ssid, self.wifi_password)
+            if not self.is_device_connected_to_internet():
+                logging.error("Could not connect to the internet. Aborting log file upload.")
+                return
+
         try:
-            logging.info("Log Send Server")
-            print("Log Send Server")
-
-            # Close the current log file
+            # TODO 2: Log that we are sending the log file
+            logging.info("Preparing to send log files...")
+            # TODO 3: Close the current log file to make sure everything is written to disk
             logging.shutdown()
+            # TODO 4: Collect all .log files from the log folder
+            log_files = glob.glob(f"{self.log_folder}/*.log")
+            logging.info("Number of log files found: %s", str(len(log_files)))
+            if not log_files:
+                logging.warning("No log files found to send.")
+                return
+            # TODO 5: Iterate over each log file, send it to the server, and delete it if successful
+            successfully_sent_files = []
+            for log_file_path in log_files:
+                logging.info("Sending log file: %s", log_file_path)
+                try:
+                    # Open the log file and prepare it for sending
+                    with open(log_file_path, "rb") as log_file:
+                        log_content = log_file.read()
 
-            delete_new_directory = False
+                    # Prepare the files dictionary for the POST request
+                    files = {"file": (os.path.basename(log_file_path), log_content)}
 
-            new_files_2 = glob.glob(f"{self.log_folder}/*.log")
-            logging.info("Length of all Files: %s", str(len(new_files_2)))
-            print("Length of all Files: %s", str(len(new_files_2)))
+                    # Make the POST request to the FastAPI server
+                    response = requests.post(f"{self.ENDPOINT}/logging/receive-logfile", files=files, timeout=15)
 
-            file_path2 = new_files_2[0]
-            logging.info("File Path: %s", file_path2)
+                    # Check if the file was sent successfully
+                    if response.status_code == 200:
+                        logging.info("Log file sent successfully: %s", log_file_path)
+                        successfully_sent_files.append(log_file_path)
+                    else:
+                        logging.error("Failed to send log file: %s, Status code: %s", log_file_path,
+                                      response.status_code)
 
-            # Path to the txt file you want to send
-            log_file_path = f"{file_path2}"  # Replace with the actual path
+                except Exception as e:
+                    logging.error("Error sending log file: %s, Exception: %s", log_file_path, e)
+            # TODO 6: Delete successfully sent log files
+            if successfully_sent_files:
+                try:
+                    count_deleted = 0
+                    for file_path in successfully_sent_files:
+                        os.remove(file_path)
+                        count_deleted += 1
+                    logging.info("Successfully deleted %d log files.", count_deleted)
+                except Exception as e:
+                    logging.error("Error deleting log files: %s", e)
+            else:
+                logging.warning("No log files were successfully sent, so none were deleted.")
 
-            # Open the log file and read its content
-            with open(log_file_path, "rb") as log_file:
-                log_content = log_file.read()
-
-            # Prepare the files dictionary for the request
-            files = {"file": ("logfile.log", log_content)}
-
-            # Make the POST request to the FastAPI server
-            response = requests.post(f"{self.ENDPOINT}logging/receive-logfile", files=files)
-
-            # Check the response
-            print(response.status_code)
-            print(response.json())
-
-            delete_new_directory = True
-
-            if delete_new_directory:
-                t1 = 0
-                for _ in new_files_2:
-                    os.remove(_)
-                    t1 = t1 + 1
-                logging.info("Total No. of Files that are deleted: %s", str(t1))
-                print("Total No. of Files that are deleted: %s", str(t1))
         except Exception as e:
-            logging.exception("An exception occurred in _7_LogSendServer: %s", e)
+            logging.exception("An exception occurred in send_log: %s", e)
 
-# # Create a new log file
-# new_log_file_path = os.path.join(log_folder, "script_log.txt")
-# logging.basicConfig(
-#     filename=new_log_file_path,
-#     level=logging.DEBUG,
-#     format="%(asctime)s - %(levelname)s - %(message)s",
-# )
+    def is_device_connected_to_internet(self):
+        try:
+            # Try to ping Google's DNS server to check for an internet connection
+            subprocess.run(["ping", "8.8.8.8", "-c", "1"], check=True, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL)
+            print("Internet is connected.")
+            return True
+        except subprocess.CalledProcessError:
+            print("No internet connection.")
+            return False
 
-# logging.info("New log file created: %s", new_log_file_path)
+    def connect_to_wifi(self, ssid, password):
+        # Get the operating system
+        os_type = platform.system()
+
+        if os_type == "Windows":
+            # Windows Wi-Fi connection command
+            command = f'netsh wlan connect name="{ssid}" ssid="{ssid}" key="{password}"'
+        elif os_type == "Linux":
+            # Linux Wi-Fi connection command using nmcli
+            command = f'nmcli dev wifi connect "{ssid}" password "{password}"'
+        elif os_type == "Darwin":
+            # macOS Wi-Fi connection command using networksetup
+            command = f'networksetup -setairportnetwork en0 "{ssid}" "{password}"'
+        else:
+            print(f"OS {os_type} not supported for automatic Wi-Fi connection.")
+            return
+
+        try:
+            subprocess.run(command, shell=True, check=True)
+            logging.info(f"Connected to Wi-Fi network: {ssid}")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to connect to Wi-Fi: {e}")
