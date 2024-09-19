@@ -2,8 +2,8 @@ from files import Files
 import time
 
 if __name__ == "__main__":
-    process = Files()
     try:
+        process = Files()
         while True:
             DESIRED_DURATION = 10
             elapsed_time2 = time.time() - process.START_TIME
