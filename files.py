@@ -268,7 +268,9 @@ class Files:
             self.connect_to_wifi(self.ssid, self.wifi_password)
             if not self.is_device_connected_to_internet():
                 return
-
+        if self.check_server_status():
+            logging.info("Seems Like Server is down.")
+            return
         try:
             logging.info("Files are being sent to server ....")
             successfully_sent_files = []
@@ -407,3 +409,16 @@ class Files:
             logging.info(f"Connected to Wi-Fi network: {ssid}")
         except subprocess.CalledProcessError as e:
             logging.error(f"Failed to connect to Wi-Fi: {e}")
+
+    def check_server_status(self):
+        try:
+            response = requests.get(self.ENDPOINT, timeout=10)
+            # If the response status code is in the range [200, 399], consider it reachable
+            if response.status_code >= 200 and response.status_code < 400:
+                return False
+            else:
+                return True
+        except requests.RequestException as e:
+            logging.info(e)
+            # If an exception occurs, the server is not reachable
+            return True
