@@ -25,7 +25,7 @@ class Files:
         # Set up logging
         self.log_folder = "Logged"
         self.configure()
-        self.ABS_PATH = "/home/nvs/Desktop/my_env" # Add your path
+        self.ABS_PATH = "/home/nvs/Desktop/File-Generation-RPI"  # Add your path
         self.readings_directory = f"{self.ABS_PATH}/readings"
         self.DESIRED_DURATION = 60
         self.START_TIME = time.time()
