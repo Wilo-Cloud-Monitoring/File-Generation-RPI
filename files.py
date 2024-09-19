@@ -279,7 +279,7 @@ class Files:
             for file in files:
                 logging.info("File Path: %s", file)
                 file_sent_successfully = False
-                for attempt in range(3):  # Retry up to 3 times
+                for attempt in range(2):  # Retry up to 2 times
                     try:
                         response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
                                                  timeout=15)
