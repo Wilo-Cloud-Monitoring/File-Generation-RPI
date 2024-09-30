@@ -215,47 +215,37 @@ class Files:
     def convert_to_dictionary(self, file_name, high_acc):
         try:
             logging.info("Converting to Dictionary")
-            res = {}
+            file_acceleration_map = {}
             for key in file_name:
-                for value in high_acc:
-                    res[key] = value
-                    high_acc.remove(value)
-                    break
-            for key, value in res.items():
-                logging.info("File Name: %s, Highest Acceleration: %s", key, str(value))
-            logging.info("Total dictionary size: %s", str(len(res.items())))
-            max_key_title = max(res, key=res.get)
-            logging.info(
-                "File Name: %s, Highest Acceleration: %s",
-                max_key_title,
-                str(res[max_key_title]),
-            )
-
-            logging.info("File having the maximum Acceleration: %s", max_key_title)
-            logging.info(
-                "File having the maximum Acceleration is: %s", str(res[max_key_title])
-            )
-            return max_key_title.title()
+                if high_acc:
+                    value = high_acc.pop(0)
+                    file_acceleration_map[key] = value
+            logging.info("Total dictionary size: %s", str(len(file_acceleration_map.items())))
+            top_5_files = sorted(file_acceleration_map.items(), key=lambda item: item[1], reverse=True)[:5]
+            return top_5_files
         except Exception as e:
             logging.exception("An exception occurred in converting to dictionary: %s", e)
 
-    def move_to_upload_queue(self, ms_test):
+    def move_to_upload_queue(self, top_files):
         try:
             logging.info("Move To upload queue Function")
             self.check_directory("Upload Queue")
             is_file_copied = False
             self.check_directory("Files Repository")
-            for file_name in os.listdir(self.backup_directory):
-                if file_name.title() == ms_test.split("/")[-1]:
-                    try:
-                        shutil.copy(f"{self.backup_directory}/{file_name}", self.upload_queue_directory)
-                        logging.info("Maximum Value File copied to the new directory")
-                        is_file_copied = True
-                    except Exception as e:
-                        logging.error(e)
-                shutil.move(f"{self.backup_directory}/{file_name}", self.files_repository_directory)
+            files_copied_count = 0
+            for file, _ in top_files:
+                file_name = file.split("/")[-1]
+                for backup_file_name in os.listdir(self.backup_directory):
+                    if file_name.title() == file_name:
+                        try:
+                            shutil.copy(f"{self.backup_directory}/{backup_file_name}", self.upload_queue_directory)
+                            files_copied_count += 1
+                        except Exception as e:
+                            logging.error("Error copying file %s: %s", file_name, e)
             self.delete_old_data()
-            if is_file_copied:
+            if files_copied_count == 5:
+                for backup_file_name in os.listdir(self.backup_directory):
+                    shutil.move(f"{self.backup_directory}/{backup_file_name}", self.files_repository_directory)
                 logging.info("File with max acceleration copied to the upload queue")
             else:
                 logging.error("File with max acceleration not copied to the upload queue")
@@ -281,21 +271,18 @@ class Files:
             for file in files:
                 logging.info("File Path: %s", file)
                 file_sent_successfully = False
-                for attempt in range(2):  # Retry up to 2 times
-                    try:
-                        response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
-                                                 timeout=15)
-                        if response.status_code == 200:
-                            logging.info("File sent successfully.")
-                            file_sent_successfully = True
-                            successfully_sent_files.append(file)  # Track successful files
-                            break  # Exit retry loop if successful
-                        else:
-                            logging.error("Failed to send file. Status Code: %s", response.status_code)
-                    except requests.RequestException as e:
-                        logging.error("Error while sending file to server: %s", e)
-
-                    time.sleep(2 ** attempt)  # Exponential backoff after each failed attempt
+                try:
+                    response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
+                                             timeout=15)
+                    if response.status_code == 200:
+                        logging.info("File sent successfully.")
+                        file_sent_successfully = True
+                        successfully_sent_files.append(file)  # Track successful files
+                        break  # Exit retry loop if successful
+                    else:
+                        logging.error("Failed to send file. Status Code: %s", response.status_code)
+                except requests.RequestException as e:
+                    logging.error("Error while sending file to server: %s", e)
 
                 if not file_sent_successfully:
                     logging.warning("Failed to send file after 3 attempts: %s", file)
