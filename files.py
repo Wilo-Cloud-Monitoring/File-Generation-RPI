@@ -37,6 +37,7 @@ class Files:
         self.ssid = os.getenv("SSID")
         self.wifi_password = os.getenv("WIFI_PASSWORD")
         self.logger = logging
+        self.check_directory("readings")
 
     def configure(self):
         if not os.path.exists(self.log_folder):
@@ -52,7 +53,6 @@ class Files:
     def check_directory(self, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
-            print("Readings Created")
             logging.info("Directory created: %s", directory)
         else:
             logging.info("Directory already exists: %s", directory)
@@ -67,7 +67,6 @@ class Files:
             d_duration = 2
             m_duration = 0
             file_path = f"{formatted_time}.csv"
-            self.check_directory("readings")
             csv_file_path = os.path.join(self.readings_directory, file_path)
 
             # Create or get the logger for the current session
@@ -230,16 +229,17 @@ class Files:
         try:
             logging.info("Move To upload queue Function")
             self.check_directory("Upload Queue")
-            is_file_copied = False
             self.check_directory("Files Repository")
             files_copied_count = 0
             for file, _ in top_files:
                 file_name = file.split("/")[-1]
                 for backup_file_name in os.listdir(self.backup_directory):
-                    if file_name.title() == file_name:
+                    if file_name.lower() == backup_file_name.lower():
                         try:
-                            shutil.copy(f"{self.backup_directory}/{backup_file_name}", self.upload_queue_directory)
+                            shutil.copy(os.path.join(self.backup_directory, backup_file_name),
+                                        self.upload_queue_directory)
                             files_copied_count += 1
+                            break
                         except Exception as e:
                             logging.error("Error copying file %s: %s", file_name, e)
             self.delete_old_data()
