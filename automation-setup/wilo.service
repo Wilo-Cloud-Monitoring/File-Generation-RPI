@@ -3,14 +3,17 @@ Description=Wilo File Generation with auto pull functionality
 After=network.target
 
 [Service]
+# Ensure the service runs as your user for SSH access and permissions
+User=nvs
+
 # Working directory where the code is located
 WorkingDirectory=/home/nvs/Desktop/File-Generation-RPI
 
-# Use SSH to pull the latest code from the private repo
-ExecStartPre=/usr/bin/git -C /home/nvs/Desktop/File-Generation-RPI pull git@github.com:Wilo-Cloud-Monitoring/File-Generation-RPI.git
+# Use SSH to pull the latest code from the private repo, and log output to /tmp/gitpull.log
+ExecStartPre=/bin/bash -c "/usr/bin/git -C /home/nvs/Desktop/File-Generation-RPI pull git@github.com:Wilo-Cloud-Monitoring/File-Generation-RPI.git > /tmp/gitpull.log 2>&1"
 
-# Start the Python script after pulling the latest changes
-ExecStart=/usr/bin/python3 /home/nvs/Desktop/File-Generation-RPI/main.py
+# Start the Python script with the Python interpreter from the virtual environment
+ExecStart=/home/nvs/Desktop/File-Generation-RPI/.venv/bin/python /home/nvs/Desktop/File-Generation-RPI/main.py > /tmp/python-script.log 2>&1
 
 # Restart the service if it fails
 Restart=always
