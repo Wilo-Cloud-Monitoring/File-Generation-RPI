@@ -5,7 +5,7 @@ if __name__ == "__main__":
     process = Files()
     try:
         while True:
-            DESIRED_DURATION = 10
+            DESIRED_DURATION = 7200
             elapsed_time2 = time.time() - process.START_TIME
             while elapsed_time2 <= DESIRED_DURATION:
                 process.files_generation()

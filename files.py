@@ -124,7 +124,6 @@ class Files:
                         if elapsed_time2 >= self.DESIRED_DURATION:
                             return
                         session_logger.info("Csv File Created!")
-                        print("Csv created")
                         return True
         except Exception as e:
             logging.exception("An exception occurred in files_generation: %s", e)
