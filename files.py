@@ -28,7 +28,7 @@ class Files:
         self.ABS_PATH = "/home/nvs/Desktop/File-Generation-RPI"  # Add your path
         self.readings_directory = f"{self.ABS_PATH}/readings"
         self.DESIRED_DURATION = 60
-        self.START_TIME = time.time()
+        self.START_TIME = 0
         self.ENDPOINT = "http://103.97.164.81:2121/"
         self.backup_directory = f"{self.ABS_PATH}/Backup"
         self.files_repository_directory = f"{self.ABS_PATH}/Files Repository"
