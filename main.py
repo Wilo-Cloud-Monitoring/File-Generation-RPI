@@ -4,13 +4,19 @@ import time
 
 if __name__ == "__main__":
     process = Files()
+    DESIRED_DURATION = 7200
     try:
         while True:
-            DESIRED_DURATION = 7200
-            elapsed_time2 = time.time() - process.START_TIME
-            while elapsed_time2 <= DESIRED_DURATION:
-                process.files_generation()
-                elapsed_time2 = time.time() - process.START_TIME
+            process.START_TIME = time.time()
+            elapsed_time = 0
+            while elapsed_time <= DESIRED_DURATION:
+                try:
+                    process.files_generation()
+                except Exception as e:
+                    process.logger.error(f"Error during file generation: {e}")
+                    process.send_log()
+                finally:
+                    elapsed_time = time.time() - process.START_TIME
             try:
                 process.send_csv(process.move_to_upload_queue(process.backup_check()))
             except Exception as e:
