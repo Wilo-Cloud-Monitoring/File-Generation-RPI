@@ -4,12 +4,11 @@ import time
 
 if __name__ == "__main__":
     process = Files()
-    DESIRED_DURATION = 7200
     try:
         while True:
             process.START_TIME = time.time()
             elapsed_time = 0
-            while elapsed_time <= DESIRED_DURATION:
+            while elapsed_time <= process.DESIRED_DURATION:
                 try:
                     process.files_generation()
                 except Exception as e:
