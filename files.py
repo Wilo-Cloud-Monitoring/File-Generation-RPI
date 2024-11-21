@@ -29,7 +29,7 @@ class Files:
         self.readings_directory = f"{self.ABS_PATH}/readings"
         self.DESIRED_DURATION = 7200
         self.START_TIME = 0
-        self.ENDPOINT = "http://103.97.164.81:2121/"
+        self.ENDPOINT = "http://103.97.164.18:2121/"
         self.backup_directory = f"{self.ABS_PATH}/Backup"
         self.files_repository_directory = f"{self.ABS_PATH}/Files Repository"
         self.upload_queue_directory = f"{self.ABS_PATH}/Upload Queue"
@@ -253,40 +253,41 @@ class Files:
             logging.exception("An exception occurred in moving to test directory: %s", e)
 
     def send_csv(self, files):
+        #TODO:1 Check for internet connection
         if not self.is_device_connected_to_internet():
             self.connect_to_wifi(self.ssid, self.wifi_password)
             if not self.is_device_connected_to_internet():
                 return
+        #TODO:2 Check for server status
         if self.check_server_status():
             logging.info("Seems Like Server is down.")
             return
+        #TODO:3 Send files to the server
         try:
             logging.info("Files are being sent to server ....")
             successfully_sent_files = []
             logging.info("Length of all Files: %s", str(len(files)))
+            #TODO:3.1 Check for the files
             if not files:
                 logging.warning("No CSV files found in the directory.")
                 return
+            #TODO:3.2 Send files
             for file in files:
                 logging.info("File Path: %s", file)
                 file_sent_successfully = False
                 try:
                     response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
-                                             timeout=15)
+                                             timeout=30)
                     if response.status_code == 200:
                         logging.info("File sent successfully.")
                         file_sent_successfully = True
                         successfully_sent_files.append(file)  # Track successful files
-                        break  # Exit retry loop if successful
                     else:
                         logging.error("Failed to send file. Status Code: %s", response.status_code)
                 except requests.RequestException as e:
                     logging.error("Error while sending file to server: %s", e)
 
-                if not file_sent_successfully:
-                    logging.warning("Failed to send file after 3 attempts: %s", file)
-
-            # Now delete only the successfully sent files
+            #TODO:3.3 Now delete only the successfully sent files
             if successfully_sent_files:
                 try:
                     count = 0

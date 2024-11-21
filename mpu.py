@@ -1,7 +1,6 @@
 import smbus
 import logging
 
-
 class MPU:
     def __init__(self):
         self.PWR_MGMT_1 = 0x6B

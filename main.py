@@ -1,4 +1,3 @@
-#!/bin/bash
 from files import Files
 import time
 
