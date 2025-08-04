@@ -276,9 +276,9 @@ class Files:
                 logging.info("File Path: %s", file)
                 file_sent_successfully = False
                 try:
-                    response = requests.post(f"{self.ENDPOINT}csv/upload", files={'file': open(file, 'rb')},
+                    response = requests.post(f"{self.ENDPOINT}upload", files={'file': open(file, 'rb')},
                                              timeout=30)
-                    if response.status_code == 200:
+                    if response.status_code == 201:
                         logging.info("File sent successfully.")
                         file_sent_successfully = True
                         successfully_sent_files.append(file)  # Track successful files
@@ -338,7 +338,7 @@ class Files:
                     response = requests.post(f"{self.ENDPOINT}/logging/receive-logfile", files=files, timeout=15)
 
                     # Check if the file was sent successfully
-                    if response.status_code == 200:
+                    if response.status_code == 201:
                         logging.info("Log file sent successfully: %s", log_file_path)
                         successfully_sent_files.append(log_file_path)
                     else:
